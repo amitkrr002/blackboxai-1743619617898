@@ -1,18 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  RefreshControl,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
-// import { MasonryFlashList } from "@shopify/flash-list";
-import Animated, {
-  FadeInDown,
-  useAnimatedScrollHandler,
-} from "react-native-reanimated";
+import React, { useState, useEffect, useMemo } from "react";
+import { useInView } from "react-intersection-observer";
 import WallpaperCard from "./WallpaperCard";
+import LoadingSkeleton from "./LoadingSkeleton";
 import {
   WallpaperItem,
   getRandomPhotos,
@@ -21,51 +10,55 @@ import {
 
 interface WallpaperGridProps {
   title?: string;
-  wallpapers?: WallpaperItem[];
+  wallpapers: WallpaperItem[];
   isLoading?: boolean;
   onRefresh?: () => void;
   onEndReached?: () => void;
   category?: string;
   onFavoriteToggle?: (id: string) => void;
+  onNewWallpapers?: (wallpapers: WallpaperItem[]) => void;
 }
 
-const WallpaperGrid = ({
+interface ErrorState {
+  message: string;
+  retry: () => void;
+}
+
+const WallpaperGridNew = ({
   title = "Trending Wallpapers",
   wallpapers,
   isLoading = false,
-  onRefresh = () => {},
   onEndReached = () => {},
   category = "",
   onFavoriteToggle,
+  onNewWallpapers,
 }: WallpaperGridProps) => {
-  const [refreshing, setRefreshing] = useState(false);
-  const [favorites, setFavorites] = useState<Record<string, boolean>>({});
-  const [localWallpapers, setLocalWallpapers] = useState<WallpaperItem[]>([]);
   const [loading, setLoading] = useState(isLoading);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorState | null>(null);
+  
+  const uniqueWallpapers = useMemo(() => {
+    return wallpapers.filter(
+      (wallpaper, index, self) =>
+        index === self.findIndex((w) => w.id === wallpaper.id)
+    );
+  }, [wallpapers]);
+  const [page, setPage] = useState(1);
+  const [ref, inView] = useInView();
 
-  // Initialize favorites from wallpapers prop
+  // Handle initial load if no wallpapers provided
   useEffect(() => {
-    if (wallpapers) {
-      // Ensure we have unique wallpapers by filtering out duplicates by ID
-      const uniqueWallpapers = wallpapers.filter(
-        (wallpaper, index, self) =>
-          index === self.findIndex((w) => w.id === wallpaper.id),
-      );
-
-      setLocalWallpapers(uniqueWallpapers);
-      const initialFavorites: Record<string, boolean> = {};
-      uniqueWallpapers.forEach((wallpaper) => {
-        if (wallpaper.isFavorite) {
-          initialFavorites[wallpaper.id] = true;
-        }
-      });
-      setFavorites(initialFavorites);
-    } else {
-      // If no wallpapers provided, fetch from Unsplash
+    if (!wallpapers?.length) {
       fetchWallpapers();
     }
-  }, [wallpapers]);
+  }, []);
+
+  // Handle infinite scroll
+  useEffect(() => {
+    if (inView && !loading) {
+      setPage((prev) => prev + 1);
+      onEndReached();
+    }
+  }, [inView, loading]);
 
   const fetchWallpapers = async () => {
     setLoading(true);
@@ -77,138 +70,64 @@ const WallpaperGrid = ({
       } else {
         photos = await getRandomPhotos(20);
       }
-      setLocalWallpapers(photos);
-    } catch (error) {
-      console.error("Error fetching wallpapers:", error);
-      setError("Failed to load wallpapers. Pull down to try again.");
+      if (onNewWallpapers) {
+        onNewWallpapers(photos);
+      }
+    } catch (err) {
+      setError({
+        message: `Failed to load wallpapers: ${err instanceof Error ? err.message : String(err)}`,
+        retry: fetchWallpapers
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    setError(null);
-    try {
-      if (onRefresh) {
-        await Promise.resolve(onRefresh());
-      } else {
-        await fetchWallpapers();
-      }
-    } catch (error) {
-      console.error("Error refreshing wallpapers:", error);
-      setError("Failed to refresh. Please try again later.");
-    } finally {
-      setRefreshing(false);
-    }
-  }, [onRefresh]);
-
   const handleFavoriteToggle = (id: string) => {
     if (onFavoriteToggle) {
       onFavoriteToggle(id);
-    } else {
-      setFavorites((prev) => ({
-        ...prev,
-        [id]: !prev[id],
-      }));
-
-      // Update the local wallpapers list
-      setLocalWallpapers((prev) =>
-        prev.map((wallpaper) =>
-          wallpaper.id === id
-            ? { ...wallpaper, isFavorite: !favorites[id] }
-            : wallpaper,
-        ),
-      );
     }
   };
 
-  const scrollHandler = useAnimatedScrollHandler((event) => {
-    // Can be used for parallax effects or hiding/showing elements on scroll
-  });
-
-  // Render a grid item
-  const renderItem = ({
-    item,
-    index,
-  }: {
-    item: WallpaperItem;
-    index: number;
-  }) => (
-    <Animated.View
-      entering={FadeInDown.delay(index * 100).springify()}
-      className="flex-1"
-    >
-      <WallpaperCard
-        id={item.id}
-        imageUrl={item.imageUrl}
-        title={item.title}
-        isFavorite={favorites[item.id] || item.isFavorite || false}
-        onFavoriteToggle={handleFavoriteToggle}
-      />
-    </Animated.View>
-  );
-
   return (
-    <View className="flex-1 bg-gray-100 dark:bg-gray-900">
+    <div className="container mx-auto px-4 py-8">
       {title && (
-        <View className="px-4 py-2">
-          <Text className="text-lg font-bold text-gray-800 dark:text-gray-200">
-            {title}
-          </Text>
-        </View>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
+          {title}
+        </h2>
       )}
 
-      {(loading || isLoading) && localWallpapers.length === 0 ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <Text className="mt-4 text-gray-600 dark:text-gray-400">
-            Loading wallpapers...
-          </Text>
-        </View>
+      {(loading || isLoading) && uniqueWallpapers.length === 0 ? (
+        <LoadingSkeleton />
       ) : (
-        <Animated.FlatList
-          data={localWallpapers}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          contentContainerStyle={{ padding: 8 }}
-          onScroll={scrollHandler}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={["#3b82f6"]}
-              tintColor="#3b82f6"
-              title="Pull to refresh..."
-              titleColor="#6b7280"
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      {uniqueWallpapers.map((wallpaper, index) => (
+            <WallpaperCard
+              key={`${wallpaper.id}-${index}`}
+              id={wallpaper.id}
+              imageUrl={wallpaper.imageUrl}
+              title={wallpaper.title}
+              isFavorite={wallpaper.isFavorite || false}
+              onFavoriteToggle={handleFavoriteToggle}
             />
-          }
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.5}
-          ListEmptyComponent={
-            <View className="flex-1 justify-center items-center p-8">
-              {error ? (
-                <>
-                  <Text className="text-red-500 text-center mb-2">{error}</Text>
-                  <Text className="text-gray-600 dark:text-gray-400 text-center">
-                    Pull down to refresh
-                  </Text>
-                </>
-              ) : (
-                <Text className="text-gray-600 dark:text-gray-400 text-center">
-                  {category
-                    ? `No wallpapers found in ${category}`
-                    : "No wallpapers found"}
-                </Text>
-              )}
-            </View>
-          }
-        />
+          ))}
+          <div ref={ref} className="h-2 w-full" />
+        </div>
       )}
-    </View>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
+          <p className="text-red-800">{error.message}</p>
+          <button 
+            onClick={error.retry}
+            className="mt-2 bg-red-500 text-white px-4 py-2 rounded"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 
-export default WallpaperGrid;
+export default WallpaperGridNew;
