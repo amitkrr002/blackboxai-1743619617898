@@ -3,25 +3,42 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 // Define custom storage for mobile platforms
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => {
-    return SecureStore.getItemAsync(key);
+const createSecureStoreAdapter = () => ({
+  async getItem(key: string) {
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch (error) {
+      console.error('SecureStore getItem error:', error);
+      return null;
+    }
   },
-  setItem: (key: string, value: string) => {
-    SecureStore.setItemAsync(key, value);
+  async setItem(key: string, value: string) {
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch (error) {
+      console.error('SecureStore setItem error:', error);
+    }
   },
-  removeItem: (key: string) => {
-    SecureStore.deleteItemAsync(key);
+  async removeItem(key: string) {
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch (error) {
+      console.error('SecureStore removeItem error:', error);
+    }
   },
-};
+});
 
 // Initialize Supabase client
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
+const supabaseUrl = 'https://rlpgokkcfjrnakugljen.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscGdva2tjZmpybmFrdWdsamVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMxMzE5MTQsImV4cCI6MjA1ODcwNzkxNH0.vputwjXKV-fqBtt78d0B6Bdcz2pwP3ZOQaAfiYzY1sk';
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: Platform.OS === "web" ? localStorage : ExpoSecureStoreAdapter,
+    storage: {
+      getItem: (key) => createSecureStoreAdapter().getItem(key),
+      setItem: (key, value) => createSecureStoreAdapter().setItem(key, value),
+      removeItem: (key) => createSecureStoreAdapter().removeItem(key),
+    },
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
