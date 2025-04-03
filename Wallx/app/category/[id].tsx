@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   SafeAreaView,
@@ -18,6 +18,7 @@ export default function CategoryScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [wallpapers, setWallpapers] = useState<WallpaperItem[]>([]);
   const [categoryName, setCategoryName] = useState("");
+  const [error, setError] = useState<{message: string; retry: () => void} | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -34,8 +35,12 @@ export default function CategoryScreen() {
     try {
       const photos = await getPhotosByCategory(id);
       setWallpapers(photos);
-    } catch (error) {
-      console.error(`Error fetching wallpapers for category ${id}:`, error);
+      setError(null);
+    } catch (err) {
+      setError({
+        message: `Failed to load wallpapers: ${err instanceof Error ? err.message : String(err)}`,
+        retry: fetchCategoryWallpapers
+      });
     } finally {
       setIsLoading(false);
     }
@@ -50,15 +55,19 @@ export default function CategoryScreen() {
     console.log("Loading more wallpapers for category...");
   };
 
-  const handleFavoriteToggle = (wallpaperId: string) => {
+  const handleFavoriteToggle = useCallback((wallpaperId: string) => {
     setWallpapers((prev) =>
       prev.map((wallpaper) =>
         wallpaper.id === wallpaperId
           ? { ...wallpaper, isFavorite: !wallpaper.isFavorite }
-          : wallpaper,
-      ),
+          : wallpaper
+      )
     );
-  };
+  }, []);
+
+  const handleNewWallpapers = useCallback((newWallpapers: WallpaperItem[]) => {
+    setWallpapers(newWallpapers);
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100 dark:bg-gray-900">
@@ -76,6 +85,17 @@ export default function CategoryScreen() {
       </View>
 
       <View className="flex-1">
+        {error && (
+          <View className="p-4 bg-red-50 border border-red-200 rounded-lg m-4">
+            <Text className="text-red-800">{error.message}</Text>
+            <TouchableOpacity 
+              onPress={error.retry}
+              className="mt-2 bg-red-500 px-4 py-2 rounded self-start"
+            >
+              <Text className="text-white">Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <WallpaperGrid
           title=""
           wallpapers={wallpapers}
@@ -84,6 +104,7 @@ export default function CategoryScreen() {
           onEndReached={handleLoadMore}
           category={id}
           onFavoriteToggle={handleFavoriteToggle}
+          onNewWallpapers={handleNewWallpapers}
         />
       </View>
 
