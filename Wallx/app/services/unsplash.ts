@@ -1,7 +1,15 @@
 // Unsplash API service
 
 // Use a different API key as the previous one might be rate limited or invalid
-const UNSPLASH_API_KEY = "4do3bAghues3HWTjWQT_b41L6lThYhN-CpW9bVf_P-E";
+// Try both Expo and Node.js environment variable formats
+const UNSPLASH_API_KEY = 
+  process.env.EXPO_PUBLIC_UNSPLASH_API_KEY || 
+  process.env.UNSPLASH_API_KEY ||
+  "4do3bAghues3HWTjWQT_b41L6lThYhN-CpW9bVf_P-E"; // fallback for testing
+
+if (!UNSPLASH_API_KEY) {
+  console.warn('Warning: Using fallback Unsplash API key');
+}
 const UNSPLASH_API_URL = "https://api.unsplash.com";
 
 export interface UnsplashPhoto {
