@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "dependencies": {
+    "react-intersection-observer": "^9.16.0"
+  }
+}
