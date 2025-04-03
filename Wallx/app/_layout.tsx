@@ -1,4 +1,5 @@
-import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider as NavThemeProvider } from "@react-navigation/native";
+import { ThemeProvider, useTheme } from "../src/contexts/ThemeContext";
 import { useFonts } from "expo-font";
 import { Stack, useSegments, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -22,7 +23,7 @@ function ProtectedRouteLayout() {
   useEffect(() => {
     if (!isLoading) {
       // Check if the user is authenticated
-      const inAuthGroup = segments[0] === "(auth)";
+      const inAuthGroup = segments[0] === "auth";
 
       if (!user && !inAuthGroup) {
         // Redirect to the sign-in page if not authenticated
@@ -78,6 +79,12 @@ function ProtectedRouteLayout() {
       <Stack.Screen name="auth" options={{ headerShown: false }} />
     </Stack>
   );
+}
+
+
+function ThemeAwareStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
 }
 
 export default function RootLayout() {
@@ -142,11 +149,13 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <AuthProvider>
-        <ProtectedRouteLayout />
-      </AuthProvider>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <NavThemeProvider value={DefaultTheme}>
+      <ThemeProvider>
+        <AuthProvider>
+          <ProtectedRouteLayout />
+        </AuthProvider>
+        <ThemeAwareStatusBar />
+      </ThemeProvider>
+    </NavThemeProvider>
   );
 }
