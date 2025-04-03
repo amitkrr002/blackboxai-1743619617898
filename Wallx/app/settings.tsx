@@ -23,6 +23,7 @@ import {
   Mail,
 } from "lucide-react-native";
 import { useAuth } from "../src/contexts/AuthContext";
+import { useTheme } from "../src/contexts/ThemeContext";
 import BottomNavBar from "./components/BottomNavBar";
 
 interface SettingsSectionProps {
@@ -97,14 +98,16 @@ const SettingsItem = ({
 
 export default function SettingsScreen() {
   const { user, signOut, isLoading } = useAuth();
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
   const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
   const [isAutoDownloadEnabled, setIsAutoDownloadEnabled] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
+    if (user?.email) {
       setUserEmail(user.email);
+    } else {
+      setUserEmail(null);
     }
   }, [user]);
 
@@ -185,7 +188,7 @@ export default function SettingsScreen() {
         <SettingsSection title="APPEARANCE">
           <SettingsItem
             icon={
-              isDarkMode ? (
+              isDark ? (
                 <Moon size={22} color="#3b82f6" />
               ) : (
                 <Sun size={22} color="#f59e0b" />
@@ -193,8 +196,8 @@ export default function SettingsScreen() {
             }
             title="Dark Mode"
             isSwitch={true}
-            isSwitchOn={isDarkMode}
-            onSwitchChange={setIsDarkMode}
+            isSwitchOn={isDark}
+            onSwitchChange={toggleTheme}
           />
         </SettingsSection>
 
