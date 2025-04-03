@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
+import { LongPressGestureHandler } from "react-native-gesture-handler";
 import {
   View,
   TouchableOpacity,
   Text,
   Platform,
   ActivityIndicator,
+  GestureResponderEvent,
 } from "react-native";
 import { Image } from "expo-image";
 import * as FileSystem from "expo-file-system";
@@ -80,7 +82,7 @@ const WallpaperCard = ({
     }
   };
 
-  const handleFavoritePress = (e: React.TouchableEvent) => {
+  const handleFavoritePress = (e: GestureResponderEvent) => {
     e.stopPropagation();
     onFavoriteToggle(id);
   };
